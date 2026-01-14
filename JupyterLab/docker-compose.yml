@@ -1,0 +1,38 @@
+services:
+  jupyterlab:
+    build:
+      context: ./jupyterlab # If using a custom Dockerfile
+      dockerfile: Dockerfile
+    #image: jupyter/scipy-notebook:latest # Or use the custom image name if building
+    container_name: jupyterlab
+    runtime: nvidia # Crucial for enabling GPU access
+    ipc: host
+    ulimits: 
+      memlock: -1
+      stack: 67108864
+    volumes:
+      - /home/alex/src/jupyter_work:/home/jovyan # Mount a local directory for notebooks
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
+      - NB_UID=1000 # Optional, for user permissions
+      - NB_GID=1000 # Optional, for user permissions
+    #command: start-notebook.sh --port=8888 --no-browser --ip='*' --allow-root # Adjust if using a different image or need specific commands
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all # or specify a specific GPU count
+              capabilities: [gpu]
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "8888:8888" # Expose Nginx on host port 80
+    depends_on:
+      - jupyterlab
+
