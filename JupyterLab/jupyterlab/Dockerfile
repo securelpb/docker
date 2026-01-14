@@ -1,5 +1,5 @@
 # Use an NVIDIA CUDA 12.9 base image for Ubuntu 24.04
-FROM nvcr.io/nvidia/pytorch:25.09-py3
+FROM nvcr.io/nvidia/pytorch:25.12-py3
 
 # Install necessary packages and Python dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,7 +15,7 @@ RUN python3 -m venv /opt/jupyter_env
 
 # Activate the virtual environment and install JupyterLab
 ENV PATH="/opt/jupyter_env/bin:$PATH"
-RUN pip install jupyterlab jupyterlab_code_formatter jupytext jupyterlab_tensorboard_pro notebook
+RUN pip install jupyterlab jupyterlab_code_formatter jupytext jupyterlab_tensorboard_pro notebook torch numpy pandas pytest
 
 # Set the working directory
 WORKDIR /home/jovyan
