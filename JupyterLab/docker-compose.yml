@@ -5,6 +5,7 @@ services:
       dockerfile: Dockerfile
     #image: jupyter/scipy-notebook:latest # Or use the custom image name if building
     container_name: jupyterlab
+    hostname: jupyterlab
     runtime: nvidia # Crucial for enabling GPU access
     ipc: host
     ulimits: 
@@ -12,6 +13,7 @@ services:
       stack: 67108864
     volumes:
       - /home/alex/src/jupyter_work:/home/jovyan # Mount a local directory for notebooks
+      - /mnt/gdrive:/home/jovyan/gdrive          # Mount Google Drive to /home/jovyan/gdrive
     environment:
       - JUPYTER_ENABLE_LAB=yes
       - JUPYTER_TOKEN=${JUPYTER_TOKEN}
@@ -29,6 +31,7 @@ services:
   nginx:
     image: nginx:alpine
     container_name: nginx
+    hostname: nginx
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
