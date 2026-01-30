@@ -71,7 +71,9 @@ RUN pip install --no-cache-dir \
 WORKDIR /home/jovyan
 
 # 9. Git configuration
-RUN git config --global credential.helper 'cache --timeout=36000'
+USER root
+RUN git config --system credential.helper 'cache --timeout=34560000'
+USER $NB_USER
 
 # Expose Jupyter Lab port
 EXPOSE 8888
