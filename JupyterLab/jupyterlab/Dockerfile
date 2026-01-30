@@ -65,4 +65,4 @@ RUN git config --global credential.helper 'cache --timeout=36000'
 EXPOSE 8888
 
 # 8. Command to run Jupyter Lab
-CMD ["jupyter", "lab", "--port=8888", "--no-browser", "--ip=0.0.0.0"]
+CMD ["jupyter", "lab", "--port=8888", "--no-browser", "--ip=0.0.0.0", "--notebook-dir=/home/jovyan"]
