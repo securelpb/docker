@@ -1,4 +1,4 @@
-FROM nvcr.io/nvidia/pytorch:25.12-py3
+FROM nvcr.io/nvidia/pytorch:24.12-py3
 
 # 1. Install necessary system packages
 USER root
@@ -42,6 +42,7 @@ RUN pip install --no-cache-dir \
     torch \
     numpy \
     pandas \
+    openpyxl \
     tensorflow \
     pytest \
     llama-cpp-python \
