@@ -32,37 +32,49 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # 4. Switch to the user 'jovyan'
 USER $NB_USER
 
-# 5. Install Python dependencies (As jovyan)
+RUN pip install --no-cache-dir \
+    torch \
+    tensorflow \
+    numpy \
+    pandas \
+    matplotlib \
+    seaborn \
+    datasets \
+    openpyxl
+
+# 5. Install the library that requires source compilation.
+# This is separated so that changes in the packages above or below 
+# don't trigger a slow CUDA re-compile of this package.
+RUN CMAKE_ARGS="-DGGML_CUDA=on" pip install --no-cache-dir llama-cpp-python
+
+# 6. Install JupyterLab and IDE tools.
+# You might add or remove extensions here frequently.
 RUN pip install --no-cache-dir \
     jupyterlab \
     jupyterlab_code_formatter \
     jupytext \
     jupyterlab_tensorboard_pro \
     notebook \
-    torch \
-    numpy \
-    pandas \
-    openpyxl \
-    tensorflow \
-    pytest \
-    llama-cpp-python \
-    datasets \
-    matplotlib \
-    seaborn \
     ipywidgets \
-    jupyterlab-git \
+    jupyterlab-git
+
+# 7. Install lightweight API and utility libraries.
+# These change most often as you update your code.
+RUN pip install --no-cache-dir \
+    huggingface_hub[cli] \
     google-api-python-client \
     google-auth-httplib2 \
-    google-auth-oauthlib
+    google-auth-oauthlib \
+    pytest
 
-# 6. Set the working directory
+# 8. Set the working directory
 WORKDIR /home/jovyan
 
-# 7. Git configuration
+# 9. Git configuration
 RUN git config --global credential.helper 'cache --timeout=36000'
 
 # Expose Jupyter Lab port
 EXPOSE 8888
 
-# 8. Command to run Jupyter Lab
+# 10. Command to run Jupyter Lab
 CMD ["jupyter", "lab", "--port=8888", "--no-browser", "--ip=0.0.0.0", "--notebook-dir=/home/jovyan"]
