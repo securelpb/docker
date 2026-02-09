@@ -35,12 +35,14 @@ USER $NB_USER
 RUN pip install --no-cache-dir \
     torch \
     tensorflow \
-    numpy \
-    pandas \
-    matplotlib \
-    seaborn \
-    datasets \
-    openpyxl
+    nbformat==5.10.4 \
+    numpy==2.0.2 \
+    pandas==2.2.2 \
+    matplotlib==3.10.0 \
+    seaborn==0.13.2 \
+    datasets==4.0.0 \
+    openpyxl==3.1.5 \
+    networkx==3.6.1
 
 # 5. Install the library that requires source compilation.
 # This is separated so that changes in the packages above or below 
@@ -62,6 +64,7 @@ RUN pip install --no-cache-dir \
 # These change most often as you update your code.
 RUN pip install --no-cache-dir \
     huggingface_hub[cli] \
+    plotly \
     google-api-python-client \
     google-auth-httplib2 \
     google-auth-oauthlib \
