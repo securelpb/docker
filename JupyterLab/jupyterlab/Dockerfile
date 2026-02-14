@@ -33,16 +33,24 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 USER $NB_USER
 
 RUN pip install --no-cache-dir \
-    torch \
-    tensorflow \
-    nbformat==5.10.4 \
-    numpy==2.0.2 \
-    pandas==2.2.2 \
-    matplotlib==3.10.0 \
-    seaborn==0.13.2 \
     datasets==4.0.0 \
+    matplotlib==3.10.0 \
+    nbformat==5.10.4 \
+    networkx==3.6.1 \
+    numpy==2.0.2 \
     openpyxl==3.1.5 \
-    networkx==3.6.1
+    pandas==2.2.2 \
+    scikit-image==0.25.2 \
+    scikit-learn==1.6 \
+    scipy==1.16.3 \
+    seaborn==0.13.2 \
+    sklearn-compat==0.1.5 \
+    sklearn-pandas==2.2.0 \
+    statsmodels==0.14.6 \
+    tensorflow \
+    torch \
+    torchaudio \
+    torchvision
 
 # 5. Install the library that requires source compilation.
 # This is separated so that changes in the packages above or below 
@@ -63,11 +71,16 @@ RUN pip install --no-cache-dir \
 # 7. Install lightweight API and utility libraries.
 # These change most often as you update your code.
 RUN pip install --no-cache-dir \
-    huggingface_hub[cli] \
-    plotly \
+    beautifulsoup4 \
     google-api-python-client \
     google-auth-httplib2 \
     google-auth-oauthlib \
+    huggingface_hub[cli] \
+    kmedoids \
+    opencv-contrib-python==4.13.0.92 \
+    opencv-python==4.13.0.92 \
+    opencv-python-headless==4.13.0.92 \
+    plotly \
     pytest
 
 # 8. Set the working directory
