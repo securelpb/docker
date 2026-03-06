@@ -5,6 +5,7 @@ USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     sudo \
+    libarchive-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Handle User Creation (Fixed Order: Delete User -> Delete Group -> Create New)
@@ -35,11 +36,13 @@ USER $NB_USER
 RUN pip install --no-cache-dir \
     "datasets < 5" \
     "kmedoids < 1" \
+    "libarchive-c" \
     "matplotlib < 4" \
     "networkx < 4" \
     "numpy == 2.0.2" \
     "openpyxl < 4" \
     "pandas < 4" \
+    "pmdarima >= 2.1.0" \
     "scikit-image < 1" \
     "scikit-learn < 2" \
     scikit-learn-extra \
