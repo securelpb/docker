@@ -33,29 +33,31 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 USER $NB_USER
 
 RUN pip install --no-cache-dir \
-    datasets==4.0.0 \
-    matplotlib==3.10.0 \
-    nbformat==5.10.4 \
-    networkx==3.6.1 \
-    numpy==2.0.2 \
-    openpyxl==3.1.5 \
-    pandas==2.2.2 \
-    scikit-image==0.25.2 \
-    scikit-learn==1.6 \
-    scipy==1.16.3 \
-    seaborn==0.13.2 \
-    sklearn-compat==0.1.5 \
-    sklearn-pandas==2.2.0 \
-    statsmodels==0.14.6 \
-    tensorflow \
-    torch \
-    torchaudio \
-    torchvision
+    "datasets < 5" \
+    "kmedoids < 1" \
+    "matplotlib < 4" \
+    "networkx < 4" \
+    "numpy == 2.0.2" \
+    "openpyxl < 4" \
+    "pandas < 4" \
+    "scikit-image < 1" \
+    "scikit-learn < 2" \
+    scikit-learn-extra \
+    "scipy < 2" \
+    "seaborn < 1" \
+    "sklearn-compat < 1" \
+    "sklearn-pandas < 3" \
+    "statsmodels < 1" \
+    "tensorflow < 3" \
+    "torch < 3" \
+    "torchaudio < 3" \
+    "torchvision < 1" \
+    "xgboost < 4"
 
 # 5. Install the library that requires source compilation.
 # This is separated so that changes in the packages above or below 
 # don't trigger a slow CUDA re-compile of this package.
-RUN CMAKE_ARGS="-DGGML_CUDA=on" pip install --no-cache-dir llama-cpp-python
+RUN CMAKE_ARGS="-DGGML_CUDA=on" pip install --no-cache-dir "llama-cpp-python < 1"
 
 # 6. Install JupyterLab and IDE tools.
 # You might add or remove extensions here frequently.
@@ -71,17 +73,23 @@ RUN pip install --no-cache-dir \
 # 7. Install lightweight API and utility libraries.
 # These change most often as you update your code.
 RUN pip install --no-cache-dir \
-    beautifulsoup4 \
+    "beautifulsoup4 < 5" \
+    "Flask < 4" \
+    Faker \
     google-api-python-client \
     google-auth-httplib2 \
     google-auth-oauthlib \
-    huggingface_hub[cli] \
-    kmedoids \
-    opencv-contrib-python==4.13.0.92 \
-    opencv-python==4.13.0.92 \
-    opencv-python-headless==4.13.0.92 \
-    plotly \
-    pytest
+    "huggingface_hub < 2" \
+    "huggingface_hub[cli] < 2" \
+    "kneed < 1" \
+    "opencv-contrib-python < 5" \
+    "opencv-python < 5" \
+    "opencv-python-headless < 5" \
+    "plotly < 7" \
+    "pytest < 10" \
+    "decorator < 6" \
+    "nbformat < 6" \
+    "shap < 1"
 
 # 8. Set the working directory
 WORKDIR /home/jovyan

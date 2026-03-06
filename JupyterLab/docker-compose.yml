@@ -19,6 +19,7 @@ services:
       - JUPYTER_TOKEN=${JUPYTER_TOKEN}
       - NB_UID=1000 # Optional, for user permissions
       - NB_GID=1000 # Optional, for user permissions
+      - PYTHONPATH=/home/jovyan/jupyterlab:${PYTHONPATH}
     #command: start-notebook.sh --port=8888 --no-browser --ip='*' --allow-root # Adjust if using a different image or need specific commands
     deploy:
       resources:
