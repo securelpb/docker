@@ -1,17 +1,45 @@
 services:
-  jupyterlab:
+  jupyterlab-pytorch:
     build:
-      context: ./jupyterlab
+      context: jupyterlab.pytorch
       dockerfile: Dockerfile
-    container_name: jupyterlab
-    hostname: jupyterlab
+    container_name: jupyterlab-pytorch
+    hostname: jupyterlab-pytorch
     ipc: host
     ulimits:
       memlock: -1
       stack: 67108864
     volumes:
-      - /home/alex/src/jupyter_work:/home/jovyan # Main workspace
-      - /mnt/gdrive:/home/jovyan/gdrive          # Google Drive nested mount
+      - /home/alex/src/jupyter_work:/home/jovyan/work  # Shared workspace
+      - /mnt/gdrive:/home/jovyan/gdrive                # Shared Google Drive mount
+      - /home/alex/src/jupyter_config:/home/jovyan/.jupyter # Shared Settings (Syncs themes, fonts, shortcuts)
+      - /home/alex/src/huggingface_cache:/home/jovyan/.cache/huggingface # Shared Model Cache
+    environment:
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
+      - PYTHONPATH=/home/jovyan/jupyterlab:${PYTHONPATH}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  jupyterlab-tensorflow:
+    build:
+      context: jupyterlab.tensorflow
+      dockerfile: Dockerfile
+    container_name: jupyterlab-tensorflow
+    hostname: jupyterlab-tensorflow
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    volumes:
+      - /home/alex/src/jupyter_work:/home/jovyan/work  # Shared workspace
+      - /mnt/gdrive:/home/jovyan/gdrive                # Shared Google Drive mount
+      - /home/alex/src/jupyter_config:/home/jovyan/.jupyter # Shared Settings (Syncs themes, fonts, shortcuts)
+      - /home/alex/src/huggingface_cache:/home/jovyan/.cache/huggingface # Shared Model Cache
     environment:
       - JUPYTER_TOKEN=${JUPYTER_TOKEN}
       - PYTHONPATH=/home/jovyan/jupyterlab:${PYTHONPATH}
@@ -30,6 +58,8 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      - "8888:8888" # Exposes Nginx on host port 8888
+      - "8888:8888" # Exposes TensorFlow environment
+      - "8889:8889" # Exposes PyTorch environment
     depends_on:
-      - jupyterlab
+      - jupyterlab-pytorch
+      - jupyterlab-tensorflow
