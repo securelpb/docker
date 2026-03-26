@@ -1,56 +1,60 @@
 services:
-  jupyterlab-pytorch:
+  jupyterlab:
     build:
-      context: jupyterlab.pytorch
-      dockerfile: Dockerfile
-    container_name: jupyterlab-pytorch
-    hostname: jupyterlab-pytorch
+      context: .
+      dockerfile: jupyterlab/Dockerfile
+    image: custom-jupyter:latest
+    container_name: jupyterlab
+    hostname: jupyterlab
     ipc: host
     ulimits:
       memlock: -1
       stack: 67108864
+    ports:
+      - "2222:22" # Open 22 to sshd
     volumes:
       - /home/alex/src/jupyter_work:/home/jovyan/work  # Shared workspace
       - /mnt/gdrive:/home/jovyan/gdrive                # Shared Google Drive mount
-      - /home/alex/src/jupyter_config:/home/jovyan/.jupyter # Shared Settings (Syncs themes, fonts, shortcuts)
-      - /home/alex/src/huggingface_cache:/home/jovyan/.cache/huggingface # Shared Model Cache
+      - /home/alex/jupyter_server_data/jupyter_config:/home/jovyan/.jupyter # Shared Settings (Syncs themes, fonts, shortcuts)
+      - /home/alex/jupyter_server_data/huggingface_cache:/home/jovyan/.cache/huggingface # Shared Model Cache
+      - /home/alex/jupyter_server_data/jetbrains-backend-cache:/home/jovyan/.cache/JetBrains # Shared IDE Cache
     environment:
       - JUPYTER_TOKEN=${JUPYTER_TOKEN}
-      - PYTHONPATH=/home/jovyan/jupyterlab:${PYTHONPATH}
+      - PYTHONPATH=/home/jovyan/work/jupyterlab
+      - SETUPTOOLS_USE_DISTUTILS=stdlib
+      - TF_CPP_MIN_LOG_LEVEL=3
+      - TF_XLA_FLAGS=--tf_xla_enable_xla_devices=false
+      - PYTHONWARNINGS=ignore
+    deploy:
+      resources:
+        limits:
+          # The absolute hard ceiling. If the container breaches this, Docker snipers it.
+          memory: 55G
+        reservations:
+          # Optional: Guarantees the container gets at least this much at startup
+          memory: 10G
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+  tensorboard:
+    image: custom-jupyter:latest
+    container_name: tensorboard
+    depends_on:
+      - jupyterlab
+    # Override the default Jupyter startup command to launch TensorBoard instead
+    command: tensorboard --logdir /home/jovyan/work/logs/fit --bind_all --port 6006
+    ports:
+      - "6006:6006" # Open 6006 to TensorBoard
+    volumes:
+      - /home/alex/src/jupyter_work:/home/jovyan/work  # Shared workspace
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [gpu]
-
-  jupyterlab-tensorflow:
-    build:
-      context: jupyterlab.tensorflow
-      dockerfile: Dockerfile
-    container_name: jupyterlab-tensorflow
-    hostname: jupyterlab-tensorflow
-    ipc: host
-    ulimits:
-      memlock: -1
-      stack: 67108864
-    volumes:
-      - /home/alex/src/jupyter_work:/home/jovyan/work  # Shared workspace
-      - /mnt/gdrive:/home/jovyan/gdrive                # Shared Google Drive mount
-      - /home/alex/src/jupyter_config:/home/jovyan/.jupyter # Shared Settings (Syncs themes, fonts, shortcuts)
-      - /home/alex/src/huggingface_cache:/home/jovyan/.cache/huggingface # Shared Model Cache
-    environment:
-      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
-      - PYTHONPATH=/home/jovyan/jupyterlab:${PYTHONPATH}
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
+              capabilities: [ gpu ]
   nginx:
     image: nginx:alpine
     container_name: nginx
@@ -58,8 +62,13 @@ services:
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
-      - "8888:8888" # Exposes TensorFlow environment
-      - "8889:8889" # Exposes PyTorch environment
+      - "8888:8888" # Exposes JupyterLab environment
     depends_on:
-      - jupyterlab-pytorch
-      - jupyterlab-tensorflow
+      - jupyterlab
+volumes:
+  jetbrains-backend-cache: # Shared IDE Cache
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/jupyter_server_data/jetbrains-backend-cache
+      o: bind
