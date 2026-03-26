@@ -1,4 +1,4 @@
-``[Unit]
+[Unit]
 Description=JupyterLab Docker Compose
 Requires=docker.service
 After=docker.service
