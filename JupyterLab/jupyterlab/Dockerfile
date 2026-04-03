@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     sudo \
     tini \
+    wget \
     openssh-server \
     libarchive-dev \
     python3.12 \
