@@ -41,8 +41,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN mkdir -p /var/run/sshd
 
 # Copy pre-generated host keys from the build context.
-COPY jupyterlab/ssh_keys/ssh_host_*_key /etc/ssh/
-COPY jupyterlab/ssh_keys/ssh_host_*_key.pub /etc/ssh/
+COPY ssh_keys/ssh_host_*_key /etc/ssh/
+COPY ssh_keys/ssh_host_*_key.pub /etc/ssh/
 
 # Set strict permissions for the host keys and verify them.
 # sshd will refuse to start if private keys are group/world-readable.
@@ -95,7 +95,7 @@ ENV PIP_BREAK_SYSTEM_PACKAGES=1
 # ----------------------
 # Create .ssh directory and copy the authorized_keys file
 RUN mkdir -p /home/$NB_USER/.ssh
-COPY --chown=$NB_USER:$NB_GID jupyterlab/ssh_keys/authorized_keys /home/$NB_USER/.ssh/authorized_keys
+COPY --chown=$NB_USER:$NB_GID ssh_keys/authorized_keys /home/$NB_USER/.ssh/authorized_keys
 
 # Set correct, strict permissions for the user's SSH files
 RUN chmod 700 /home/$NB_USER/.ssh && \
@@ -202,7 +202,7 @@ RUN --mount=type=cache,target=/home/jovyan/.cache/pip,uid=1000,gid=1000 \
     pip install --no-deps "nvidia-cudnn-cu12>=9.3.0.75"
 
 # Jupyter specific configurations
-RUN jupyter labextension enable jupyterlab-execute-time
+RUN jupyter labextension enable jupyterlab-execute_time
 
 # Register Kernel
 RUN python3 -m ipykernel install --user --name=python3 --display-name="Python 3 (TF + PyTorch)"
