@@ -1,7 +1,9 @@
 # ----------------------------------------------------
 # MODERN PYTORCH & GENERATIVE AI ENVIRONMENT
+# Base: NVIDIA CUDA + CUDNN Development Image for Ubuntu 24.04
+# Strategy: Mirror the stable 'jupyterlab' service foundation, but with a modern package set.
 # ----------------------------------------------------
-FROM nvcr.io/nvidia/pytorch:26.03-py3
+FROM nvidia/cuda:12.6.2-cudnn-devel-ubuntu24.04
 
 ARG NB_USER=jovyan
 ARG NB_UID=1000
@@ -12,13 +14,19 @@ USER root
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git \
     sudo \
-    libarchive-dev \
-    openssh-server \
     tini \
+    wget \
+    openssh-server \
+    libarchive-dev \
+    python3.12 \
+    python3.12-dev \
+    python3-pip \
+    cmake \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. SSH Configuration
-RUN mkdir /var/run/sshd
+RUN mkdir -p /var/run/sshd
 COPY ssh_keys/ssh_host_*_key /etc/ssh/
 COPY ssh_keys/ssh_host_*_key.pub /etc/ssh/
 RUN chmod 600 /etc/ssh/ssh_host_*_key && \
@@ -30,8 +38,12 @@ RUN chmod 600 /etc/ssh/ssh_host_*_key && \
 COPY jupyterlab/entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
+# Create a symlink for the CUDA stub library, which is needed by some build processes.
+RUN mkdir -p /usr/local/cuda/lib64/stubs && \
+    ln -s /usr/local/cuda/lib64/stubs/libcuda.so /usr/local/cuda/lib64/stubs/libcuda.so.1 || true
+
 # 3. User Setup
-# Evict the default 'ubuntu' user if it exists on UID/GID 1000.
+# Evict any existing user/group on UID/GID 1000, then create our user.
 RUN if getent passwd $NB_UID; then userdel -r $(getent passwd $NB_UID | cut -d: -f1); fi && \
     if getent group $NB_GID; then groupdel $(getent group $NB_GID | cut -d: -f1); fi && \
     groupadd -g $NB_GID $NB_USER && \
@@ -39,16 +51,10 @@ RUN if getent passwd $NB_UID; then userdel -r $(getent passwd $NB_UID | cut -d: 
     echo "$NB_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$NB_USER && \
     chmod 0440 /etc/sudoers.d/$NB_USER
 
-# Restore the constraint file as root, before switching to the user.
-RUN (cp /etc/pip/original_constraint.txt /etc/pip/constraint.txt || true)
-
-# 4. Virtual Environment (with access to NVIDIA's PyTorch)
-ENV VIRTUAL_ENV=/opt/jupyter_env
-RUN python3 -m venv --system-site-packages $VIRTUAL_ENV && \
-    chown -R $NB_USER:$NB_GID $VIRTUAL_ENV
-
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# 4. Switch to User and set up environment
 USER $NB_USER
+ENV PATH="/home/$NB_USER/.local/bin:${PATH}"
+ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # 5. User SSH Setup
 RUN mkdir -p /home/$NB_USER/.ssh && \
@@ -60,21 +66,38 @@ RUN chmod 600 /home/$NB_USER/.ssh/authorized_keys
 # PACKAGE INSTALLATION
 # ==========================================
 
-# STAGE 1: Install the build system tools first.
-RUN python -m pip install --no-build-isolation -c /etc/pip/constraint.txt \
+# A. Install the Holy Trinity first, using the default PyPI index.
+RUN python3 -m pip install \
+    "torch" \
+    "torchvision" \
+    "torchaudio" \
+    "accelerate" \
+    "torchao>=0.17.0"
+
+# ==========================================
+# 3. LLAMA-CPP COMPILATION (Rarely changes, slow C++ build)
+# ==========================================
+# Notice: Removed --no-cache-dir so the cache mount actually works!
+RUN --mount=type=cache,target=/home/jovyan/.cache/pip,uid=1000,gid=1000 \
+    LD_LIBRARY_PATH=/usr/local/cuda/lib64/stubs:$LD_LIBRARY_PATH \
+    CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=86" \
+    pip install "llama-cpp-python[server]"
+
+
+# B. Install the build system tools in their own layer.
+RUN python3 -m pip install --no-build-isolation \
     scikit-build-core
 
-# STAGE 2: Install all packages, ensuring the PyTorch trinity is installed together.
-RUN python -m pip install --no-build-isolation -c /etc/pip/constraint.txt --upgrade \
-    # --- The Holy Trinity ---
-    torch \
-    torchvision \
-    torchaudio \
-    # --- Key Libraries to Upgrade ---
-    "diffusers==0.27.2" \
+# C. Install the rest of the packages.
+# CMAKE_ARGS are needed for llama-cpp-python compilation.
+RUN CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=86" \
+    python3 -m pip install --no-build-isolation \
+    # --- Key Libraries ---
+    diffusers \
     transformers \
-    # --- Build-from-Source ---
-    "llama-cpp-python[server]" \
+    opencv-contrib-python-headless \
+    # --- The New Hotness ---
+    suno-bark \
     # --- Core Data Science & ML ---
     numpy \
     pandas \
@@ -91,10 +114,8 @@ RUN python -m pip install --no-build-isolation -c /etc/pip/constraint.txt --upgr
     seaborn \
     shap \
     # --- Generative AI ---
-    parler-tts \
     huggingface_hub \
     datasets \
-    "torchao==0.17.0" \
     # --- Jupyter & IDE ---
     jupyterlab \
     ipykernel \
@@ -114,11 +135,11 @@ RUN python -m pip install --no-build-isolation -c /etc/pip/constraint.txt --upgr
     google-auth-oauthlib \
     google-genai \
     libarchive-c \
-    mediapy==1.2.4 \
-    moviepy==1.0.3 \
+    mediapy \
+    moviepy \
     nltk \
     openpyxl \
-    pydub==0.25.1 \
+    pydub \
     pytest \
     ydata-profiling \
     git+https://github.com/AbdullahO/mSSA.git@a7b25f5
@@ -127,7 +148,7 @@ RUN python -m pip install --no-build-isolation -c /etc/pip/constraint.txt --upgr
 # JUPYTER CONFIGURATION
 # ==========================================
 RUN jupyter labextension enable jupyterlab-execute_time
-RUN python -m ipykernel install --user --name=pytorch_modern --display-name="Python (Modern PyTorch)"
+RUN python3 -m ipykernel install --user --name=pytorch_modern --display-name="Python (Modern PyTorch)"
 RUN mkdir -p /home/$NB_USER/.jupyter/lab/settings && \
     echo '{\n\
   "@jupyterlab/notebook-extension:tracker": {\n\

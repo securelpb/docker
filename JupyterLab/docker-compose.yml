@@ -1,72 +1,58 @@
+x-jupyter-base: &jupyter-base
+  ipc: host
+  ulimits:
+    memlock: -1
+    stack: 67108864
+  volumes:
+    - jupyter_work:/home/jovyan/work
+    - gdrive:/home/jovyan/gdrive
+    - jupyter_config:/home/jovyan/.jupyter
+    - huggingface_cache:/home/jovyan/.cache/huggingface
+    - jetbrains-backend-cache:/home/jovyan/.cache/JetBrains
+  environment: &common-env
+    JUPYTER_TOKEN: ${JUPYTER_TOKEN:?JUPYTER_TOKEN is not set. Please define it in a .env file.}
+    HF_TOKEN: ${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+    GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:-}
+    PYTHONPATH: /home/jovyan/work/jupyterlab
+    SETUPTOOLS_USE_DISTUTILS: stdlib
+    PYTHONWARNINGS: ignore
+  deploy:
+    resources:
+      limits:
+        memory: 55G
+      reservations:
+        memory: 10G
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
 services:
   jupyterlab:
+    <<: *jupyter-base
     build:
       context: .
       dockerfile: jupyterlab/Dockerfile
     image: custom-jupyter:latest
     container_name: jupyterlab
     hostname: jupyterlab
-    ipc: host
-    ulimits:
-      memlock: -1
-      stack: 67108864
     ports:
       - "2222:22" # Open 22 to sshd
-    volumes:
-      - /home/alex/src/jupyter_work:/home/jovyan/work  # Shared workspace
-      - /mnt/gdrive:/home/jovyan/gdrive                # Shared Google Drive mount
-      - /home/alex/jupyter_server_data/jupyter_config:/home/jovyan/.jupyter # Shared Settings (Syncs themes, fonts, shortcuts)
-      - /home/alex/jupyter_server_data/huggingface_cache:/home/jovyan/.cache/huggingface # Shared Model Cache
-      - /home/alex/jupyter_server_data/jetbrains-backend-cache:/home/jovyan/.cache/JetBrains # Shared IDE Cache
     environment:
-      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
-      - PYTHONPATH=/home/jovyan/work/jupyterlab
-      - SETUPTOOLS_USE_DISTUTILS=stdlib
-      - TF_CPP_MIN_LOG_LEVEL=3
-      - TF_XLA_FLAGS=--tf_xla_enable_xla_devices=false
-      - PYTHONWARNINGS=ignore
-    deploy:
-      resources:
-        limits:
-          memory: 55G
-        reservations:
-          memory: 10G
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+      <<: *common-env
+      TF_CPP_MIN_LOG_LEVEL: 3
+      TF_XLA_FLAGS: --tf_xla_enable_xla_devices=false
 
   jupyterlab-pytorch:
+    <<: *jupyter-base
     build:
       context: .
       dockerfile: jupyterlab.pytorch/Dockerfile
     image: custom-jupyter-pytorch:latest
     container_name: jupyterlab-pytorch
     hostname: jupyterlab-pytorch
-    ipc: host
-    ulimits:
-      memlock: -1
-      stack: 67108864
     ports:
       - "2223:22" # Open 22 to sshd
-    volumes:
-      - /home/alex/src/jupyter_work:/home/jovyan/work
-      - /mnt/gdrive:/home/jovyan/gdrive
-      - /home/alex/jupyter_server_data/jupyter_config:/home/jovyan/.jupyter
-      - /home/alex/jupyter_server_data/huggingface_cache:/home/jovyan/.cache/huggingface
-      - /home/alex/jupyter_server_data/jetbrains-backend-cache:/home/jovyan/.cache/JetBrains
-    environment:
-      - JUPYTER_TOKEN=${JUPYTER_TOKEN}
-    deploy:
-      resources:
-        limits:
-          memory: 55G
-        reservations:
-          memory: 10G
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
   tensorboard:
     image: custom-jupyter:latest
@@ -77,14 +63,14 @@ services:
     ports:
       - "6006:6006"
     volumes:
-      - /home/alex/src/jupyter_work:/home/jovyan/work
+      - jupyter_work:/home/jovyan/work
     deploy:
       resources:
         reservations:
           devices:
             - driver: nvidia
               count: all
-              capabilities: [ gpu ]
+              capabilities: [gpu]
 
   nginx:
     image: nginx:alpine
@@ -100,6 +86,30 @@ services:
       - jupyterlab-pytorch
 
 volumes:
+  jupyter_work:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/src/jupyter_work
+      o: bind
+  gdrive:
+    driver: local
+    driver_opts:
+      type: none
+      device: /mnt/gdrive
+      o: bind
+  jupyter_config:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/jupyter_server_data/jupyter_config
+      o: bind
+  huggingface_cache:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/jupyter_server_data/huggingface_cache
+      o: bind
   jetbrains-backend-cache:
     driver: local
     driver_opts:
