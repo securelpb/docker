@@ -28,52 +28,30 @@ x-jupyter-base: &jupyter-base
             capabilities: [gpu]
 
 services:
-  jupyterlab:
+  # The Master PyTorch Environment
+jupyterlab:
     <<: *jupyter-base
     build:
       context: .
       dockerfile: jupyterlab/Dockerfile
-    image: custom-jupyter:latest
+    image: custom-jupyter-pytorch:latest
     container_name: jupyterlab
     hostname: jupyterlab
     ports:
       - "2222:22" # Open 22 to sshd
-    environment:
-      <<: *common-env
-      TF_CPP_MIN_LOG_LEVEL: 3
-      TF_XLA_FLAGS: --tf_xla_enable_xla_devices=false
     command: jupyter lab --port=8888 --no-browser --ip=0.0.0.0 --notebook-dir=/home/jovyan --ServerApp.allow_origin='*'
 
-  jupyterlab-pytorch:
-    <<: *jupyter-base
-    build:
-      context: .
-      dockerfile: jupyterlab.pytorch/Dockerfile
-    image: custom-jupyter-pytorch:latest
-    container_name: jupyterlab-pytorch
-    hostname: jupyterlab-pytorch
-    ports:
-      - "2223:22" # Open 22 to sshd
-    command: jupyter lab --port=8888 --no-browser --ip=0.0.0.0 --notebook-dir=/home/jovyan --ServerApp.allow_origin='*'
-
+  # CPU-Only TensorBoard (Crash-proof and VRAM efficient)
   tensorboard:
-    image: custom-jupyter:latest
+    image: custom-jupyter-pytorch:latest
     container_name: tensorboard
     depends_on:
       - jupyterlab
     command: tensorboard --logdir /home/jovyan/work/logs/fit --bind_all --port 6006
-    ports:
-      - "6006:6006"
     volumes:
       - jupyter_work:/home/jovyan/work
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
 
+  # Optimized 4-Bit AWQ Inference Engine for Agents
   vllm:
     image: vllm/vllm-openai:latest
     container_name: vllm
@@ -83,11 +61,17 @@ services:
       memlock: -1
       stack: 67108864
     volumes:
-      # Official image runs as root, so map the cache to /root/
       - huggingface_cache:/root/.cache/huggingface
     environment:
       HF_TOKEN: ${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
-    command: --model meta-llama/Llama-3.1-8B-Instruct --host 0.0.0.0 --port 8000 --max-model-len 4096
+    # Utilizing 4-bit quantization, Marlin kernels, a massive context window, and strict VRAM boundaries
+    command: >
+      --model hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4 
+      --quantization awq_marlin 
+      --host 0.0.0.0 
+      --port 8000 
+      --max-model-len 32768 
+      --gpu-memory-utilization 0.40
     deploy:
       resources:
         reservations:
@@ -95,7 +79,18 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
-
+# Persistent Vector Database for Agent Memory (RAG)
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    hostname: chromadb
+    restart: unless-stopped
+    volumes:
+      # Maps the internal SQLite and vector index files to your host
+      - chromadb_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=FALSE
+  # Consolidated Reverse Proxy
   nginx:
     image: nginx:alpine
     container_name: nginx
@@ -104,13 +99,14 @@ services:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
     ports:
       - "8888:8888" # Exposes jupyterlab
-      - "8889:8889" # Exposes jupyterlab-pytorch
-      - "8000:8000" # Exposes vllm
+      - "6006:6006" # Exposes TensorBoard
+      - "8000:8000" # Exposes vLLM
+      - "8001:8001" # Exposes ChromaDB via proxy!
     depends_on:
       - jupyterlab
-      - jupyterlab-pytorch
+      - tensorboard
       - vllm
-
+      - chromadb
 volumes:
   jupyter_work:
     driver: local
@@ -141,4 +137,10 @@ volumes:
     driver_opts:
       type: none
       device: /home/alex/jupyter_server_data/jetbrains-backend-cache
+      o: bind
+  chromadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/jupyter_server_data/chromadb_data
       o: bind
