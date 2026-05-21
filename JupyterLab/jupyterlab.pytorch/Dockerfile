@@ -94,8 +94,11 @@ RUN CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=86" \
     python3 -m pip install --no-build-isolation \
     # --- Key Libraries ---
     diffusers \
+    xformers \
     transformers \
     opencv-contrib-python-headless \
+    Pillow \
+    "bitsandbytes>0.43" \
     # --- The New Hotness ---
     suno-bark \
     # --- Core Data Science & ML ---
@@ -108,11 +111,15 @@ RUN CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=86" \
     scikit-learn \
     statsmodels \
     xgboost \
+    lightgbm \
+    catboost \
+    optuna \
     # --- Visualization ---
     matplotlib \
     plotly \
     seaborn \
     shap \
+    wordcloud \
     # --- Generative AI ---
     huggingface_hub \
     datasets \
@@ -129,17 +136,24 @@ RUN CMAKE_ARGS="-DGGML_CUDA=on -DCMAKE_CUDA_ARCHITECTURES=86" \
     # --- Utilities & Other ---
     beautifulsoup4 \
     Faker \
+    featuretool \
     Flask \
     google-api-python-client \
     google-auth-httplib2 \
     google-auth-oauthlib \
     google-genai \
+    langchain \
+    langchain-community \
+    langchain-chroma \
+    chromadb \
+    openai \
     libarchive-c \
     mediapy \
     moviepy \
     nltk \
     openpyxl \
     pydub \
+    black \
     pytest \
     ydata-profiling \
     git+https://github.com/AbdullahO/mSSA.git@a7b25f5

@@ -42,6 +42,7 @@ services:
       <<: *common-env
       TF_CPP_MIN_LOG_LEVEL: 3
       TF_XLA_FLAGS: --tf_xla_enable_xla_devices=false
+    command: jupyter lab --port=8888 --no-browser --ip=0.0.0.0 --notebook-dir=/home/jovyan --ServerApp.allow_origin='*'
 
   jupyterlab-pytorch:
     <<: *jupyter-base
@@ -53,6 +54,7 @@ services:
     hostname: jupyterlab-pytorch
     ports:
       - "2223:22" # Open 22 to sshd
+    command: jupyter lab --port=8888 --no-browser --ip=0.0.0.0 --notebook-dir=/home/jovyan --ServerApp.allow_origin='*'
 
   tensorboard:
     image: custom-jupyter:latest
@@ -72,6 +74,28 @@ services:
               count: all
               capabilities: [gpu]
 
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: vllm
+    hostname: vllm
+    ipc: host
+    ulimits:
+      memlock: -1
+      stack: 67108864
+    volumes:
+      # Official image runs as root, so map the cache to /root/
+      - huggingface_cache:/root/.cache/huggingface
+    environment:
+      HF_TOKEN: ${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+    command: --model meta-llama/Llama-3.1-8B-Instruct --host 0.0.0.0 --port 8000 --max-model-len 4096
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
   nginx:
     image: nginx:alpine
     container_name: nginx
@@ -81,9 +105,11 @@ services:
     ports:
       - "8888:8888" # Exposes jupyterlab
       - "8889:8889" # Exposes jupyterlab-pytorch
+      - "8000:8000" # Exposes vllm
     depends_on:
       - jupyterlab
       - jupyterlab-pytorch
+      - vllm
 
 volumes:
   jupyter_work:
