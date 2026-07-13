@@ -33,7 +33,9 @@ ENV PATH="/home/$NB_USER/.local/bin:${PATH}"
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
 # 4. Install vLLM
-RUN python3 -m pip install vllm
+RUN python3 -m pip install \
+    vllm \
+    "bitsandbytes>=0.48.1"
 
 WORKDIR /home/vllm
 EXPOSE 8000
