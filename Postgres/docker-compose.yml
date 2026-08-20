@@ -1,0 +1,21 @@
+services:
+  postgres:
+    build:
+      context: .
+      args:
+        UID: ${UID}
+        GID: ${GID}
+    container_name: postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POWER_USER: ${POWER_USER}
+      POWER_USER_PASSWORD: ${POWER_USER_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - /home/alex/docker_server_data/postgres:/var/lib/postgresql
+      - ./init-power-user.sh:/docker-entrypoint-initdb.d/init-power-user.sh
+    ports:
+      - "5432:5432"
+    command: postgres -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all
+    restart: unless-stopped
