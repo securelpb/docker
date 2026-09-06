@@ -11,7 +11,7 @@ x-vllm-common: &vllm-common
     - huggingface_cache:/home/vllm/.cache/huggingface
   environment:
     HF_TOKEN: ${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
-    VLLM_API_KEY: ${VLLM_API_KEY:-}
+    VLLM_API_KEY: ${VLLM_API_KEY:?VLLM_API_KEY is not set. Please define it in a .env file.}
     PYTORCH_ALLOC_CONF: "expandable_segments:True"
     PYTHONWARNINGS: "ignore:The .use_fast. parameter is deprecated:UserWarning"
   deploy:
@@ -26,62 +26,63 @@ services:
   vllm-qwen:
     <<: *vllm-common
     container_name: vllm-qwen
-    profiles: ["qwen"]
+    profiles: ["qwen38_27b"]
     command: >
-      python3 -m vllm.entrypoints.openai.api_server
-      --model Lorbus/Qwen3.6-27B-int4-AutoRound
-      --host 0.0.0.0
-      --port 8000
-      --trust-remote-code
-      --max-model-len 65536
-      --gpu-memory-utilization 0.95
-      --max-num-seqs 2
-      --kv-cache-dtype fp8
-      --enable-auto-tool-choice
-      --tool-call-parser qwen3_xml
-      --reasoning-parser qwen3
-      --no-enable-log-requests
-      ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
+      python3 -m vllm.entrypoints.openai.api_server 
+            --model dbirks/Qwen3.8-27B-W4A16-AutoRound 
+            --host 0.0.0.0 
+            --port 8000 
+            --trust-remote-code 
+            --served-model-name qwen3.8-27b 
+            --gpu-memory-utilization 0.9674
+            --max-model-len 84672 
+            --max-num-seqs 1 
+            --kv-cache-dtype fp8 
+            --dtype float16 
+            --enable-chunked-prefill 
+            --max-num-batched-tokens 2048 
+            --enable-prefix-caching 
+            --reasoning-parser qwen3 
+            --enable-auto-tool-choice 
+            --tool-call-parser qwen3_xml
+            ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
 
-  vllm-gemma:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    profiles: ["qwen38_27b", "qwen3-vl", "qwen-long-context", "coder", "llama"]
+    ports:
+      - "7860:8080" # Maps standard web UI port 7860 to internal 8080
+    volumes:
+      - open-webui:/app/backend/data
+    environment:
+      # Tell Open WebUI where to find your default profile container
+      - OPENAI_API_BASE_URL=http://vllm-qwen:8000/v1
+      - OPENAI_API_KEY=${VLLM_API_KEY:?VLLM_API_KEY is not set. Please define it in a .env file.}
+    restart: unless-stopped
+
+  vllm-qwen3-vl:
     <<: *vllm-common
-    container_name: vllm-gemma26b
-    profiles: ["gemma26b"]
-    command: >
-      python3 -m vllm.entrypoints.openai.api_server
-      --model cyankiwi/gemma-4-26B-A4B-it-AWQ-4bit 
-      --quantization compressed-tensors 
+    container_name: vllm-qwen3-vl
+    profiles: [ "qwen3-vl" ]
+    command: >      
+      python3 -m vllm.entrypoints.openai.api_server 
+      --model cyankiwi/Qwen3-VL-8B-Instruct-AWQ-4bit 
       --host 0.0.0.0 
       --port 8000 
-      --max-model-len 65536 
-      --dtype float16 
-      --kv-cache-dtype bfloat16 
-      --max-num-seqs 1 
-      --gpu-memory-utilization 0.95 
-      --no-enable-log-requests
-      ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
-
-  vllm-gemma12b:
-    <<: *vllm-common
-    container_name: vllm-gemma12b
-    profiles: ["gemma12b"]
-    command: >
-      python3 -m vllm.entrypoints.openai.api_server
-      --model securelpb/gemma-4-12B-agentic-W4A16
-      --quantization compressed-tensors 
-      --host 0.0.0.0 
-      --port 8000
-      --trust-remote-code
-      --dtype bfloat16 
-      --kv-cache-dtype bfloat16 
-      --max-model-len 82000
-      --max-num-seqs 1 
-      --gpu-memory-utilization 0.95 
-      --no-enable-log-requests
-      --enable-auto-tool-choice
-      --tool-call-parser gemma4
-      --enable-prefix-caching
-      --disable_chunked_mm_input
+      --trust-remote-code 
+      --gpu-memory-utilization 0.90 
+      --max-model-len 32768 
+      --max-num-seqs 8 
+      --kv-cache-dtype fp8 
+      --enable-chunked-prefill 
+      --limit-mm-per-prompt '{"image": 2}' 
+      --mm-processor-kwargs '{"max_pixels":
+        1048576, "min_pixels": 3136}' 
+      --no-enable-log-requests 
+      --enable-auto-tool-choice 
+      --tool-call-parser qwen3_xml 
+      --reasoning-parser qwen3
       ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
 
   vllm-qwen-long-context:
@@ -89,18 +90,23 @@ services:
     container_name: vllm-qwen-long-context
     profiles: ["qwen-long-context"]
     command: >
-      python3 -m vllm.entrypoints.openai.api_server
-      --model Lorbus/Qwen3.6-27B-int4-AutoRound
-      --host 0.0.0.0
-      --port 8000
-      --trust-remote-code
-      --max-model-len 76832
-      --gpu-memory-utilization 0.96
-      --max-num-seqs 2
-      --kv-cache-dtype fp8
-      --enable-auto-tool-choice
-      --tool-call-parser qwen3_xml
-      --reasoning-parser qwen3
+      python3 -m vllm.entrypoints.openai.api_server 
+      --model cyankiwi/Qwen3.6-27B-AWQ-INT4 
+      --quantization awq 
+      --host 0.0.0.0 
+      --port 8000 
+      --trust-remote-code 
+      --gpu-memory-utilization 0.95 
+      --max-model-len 65536 
+      --max-num-seqs 1 
+      --kv-cache-dtype fp8 
+      --dtype float16 
+      --enable-chunked-prefill 
+      --max-num-batched-tokens 512 
+      --enable-prefix-caching 
+      --enable-auto-tool-choice 
+      --tool-call-parser qwen3_xml 
+      --reasoning-parser qwen3 
       --no-enable-log-requests
       ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
 
@@ -109,37 +115,22 @@ services:
     container_name: vllm-coder-14b
     profiles: ["coder"]
     command: >
-      python3 -m vllm.entrypoints.openai.api_server
-      --model Qwen/Qwen2.5-Coder-14B-Instruct-AWQ
-      --quantization awq
-      --host 0.0.0.0
-      --port 8000
-      --trust-remote-code
-      --max-model-len 32768
-      --gpu-memory-utilization 0.95
-      --max-num-seqs 3
-      --kv-cache-dtype fp8
-      --enable-auto-tool-choice
-      --tool-call-parser qwen3_xml
+      python3 -m vllm.entrypoints.openai.api_server 
+      --model Qwen/Qwen2.5-Coder-14B-Instruct-AWQ 
+      --quantization awq 
+      --host 0.0.0.0 
+      --port 8000 
+      --trust-remote-code 
+      --gpu-memory-utilization 0.95 
+      --max-model-len 131072 
+      --max-num-seqs 2 
+      --kv-cache-dtype fp8 
+      --dtype float16 
+      --enable-chunked-prefill 
+      --max-num-batched-tokens 512 
+      --enable-prefix-caching 
+      --enable-auto-tool-choice 
       --no-enable-log-requests
-      ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
-
-  vllm-llama:
-    <<: *vllm-common
-    container_name: vllm-llama
-    profiles: ["llama"]
-    command: >
-      python3 -m vllm.entrypoints.openai.api_server
-      --model yw223/Meta-Llama-3.1-8B-Instruct-AWQ-4bit
-      --quantization compressed-tensors
-      --host 0.0.0.0
-      --port 8000
-      --max-model-len 131072
-      --gpu-memory-utilization 0.95
-      --max-num-seqs 1
-      --kv-cache-dtype fp8
-      --no-enable-log-requests
-      ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
 
 volumes:
   huggingface_cache:
@@ -147,4 +138,10 @@ volumes:
     driver_opts:
       type: none
       device: /home/alex/docker_server_data/huggingface_cache
+      o: bind
+  open-webui:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/docker_server_data/open-webui
       o: bind
