@@ -1,0 +1,7 @@
+services:
+  lakewatcher:
+    build: .
+    container_name: lakewatcher-service
+    restart: unless-stopped
+    volumes:
+      - /etc/default/weatherwatcher:/etc/default/weatherwatcher:ro

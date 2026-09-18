@@ -1,0 +1,22 @@
+services:
+  # Persistent Vector Database for Agent Memory (RAG)
+  chromadb:
+    image: chromadb/chroma:latest
+    container_name: chromadb
+    hostname: chromadb
+    restart: unless-stopped
+    ports:
+      - "8000:8000" # Exposes ChromaDB
+    volumes:
+      # Maps the internal SQLite and vector index files to your host
+      - chromadb_data:/chroma/chroma
+    environment:
+      - ANONYMIZED_TELEMETRY=FALSE
+  
+volumes:
+  chromadb_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/docker_server_data/chromadb_data
+      o: bind

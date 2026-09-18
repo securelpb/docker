@@ -1,11 +1,12 @@
-version: '3.0'
 services:
-  mytb:
+  thingsboard:
+    container_name: thingsboard
+    hostname: thingsboard
     restart: unless-stopped
     image: "thingsboard/tb-postgres"
     ports:
-      - "8080:9090"
       - "1883:1883"
+      - "8883:8883"
       - "7070:7070"
       - "5683-5688:5683-5688/udp"
     environment:
@@ -13,3 +14,58 @@ services:
     volumes:
       - /var/lib/thingsboard/data:/data
       - /var/log/thingsboard:/var/log/thingsboard
+    # Healthcheck to verify ThingsBoard web UI is actually listening
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/127.0.0.1/9090'"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+      start_period: 30s
+  thingsboard-mcp:
+    restart: unless-stopped
+    image: "thingsboard/mcp:latest"
+    hostname: thingsboard-mcp
+    container_name: thingsboard-mcp
+    ports:
+      # Explicitly mapping host port 8088 to container port 8000
+      - "8088:8000"
+    depends_on:
+      thingsboard:
+        condition: service_healthy
+    # Force the JVM arguments to properly switch transport layers at runtime
+    entrypoint: [
+      "java",
+      "-Dspring.ai.mcp.server.stdio=false",
+      "-Dspring.main.web-application-type=servlet",
+      "-Dhttp.bind-address=0.0.0.0",
+      "-Dhttp.bind-port=8000",
+      "-Dserver.port=8000",
+      "-jar",
+      "/app/app.jar"
+    ]
+    environment:
+      SPRING_PROFILES_ACTIVE: sse
+      # -- Main ThingsBoard node connection --
+      THINGSBOARD_URL: "http://thingsboard:9090"
+      THINGSBOARD_USERNAME: ${THINGSBOARD_USERNAME:?THINGSBOARD_USERNAME is not set.}
+      THINGSBOARD_PASSWORD: ${THINGSBOARD_PASSWORD:?THINGSBOARD_PASSWORD is not set.}
+
+  thingsboard-proxy:
+    image: nginx:latest
+    container_name: thingsboard-proxy
+    hostname: thingsboard-proxy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - /var/local/nginx/certs:/etc/nginx/certs:ro
+    secrets:
+      - ssl_cert_passphrase
+    depends_on:
+      thingsboard:
+        condition: service_healthy
+
+secrets:
+  ssl_cert_passphrase:
+    file: /etc/ssl/private/ssl_passphrase.txt

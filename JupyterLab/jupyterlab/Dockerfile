@@ -46,14 +46,30 @@ RUN if getent passwd $NB_UID; then userdel -r $(getent passwd $NB_UID | cut -d: 
     echo "$NB_USER ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$NB_USER && \
     chmod 0440 /etc/sudoers.d/$NB_USER
 
+# Fix permissions on the .cache folder created by BuildKit/Root
+# Ensure the directory exists, then fix any root permissions left by BuildKit
+RUN mkdir -p /home/$NB_USER/.cache && \
+    chown -R $NB_USER:$NB_USER /home/$NB_USER/.cache
+
 # 4. Switch to User and set up environment
 USER $NB_USER
 ENV PATH="/home/$NB_USER/.local/bin:${PATH}"
+ENV PYTHONPATH="/home/$NB_USER/work/jupyterlab/securesmith:${PYTHONPATH}"
 ENV PIP_BREAK_SYSTEM_PACKAGES=1
 
-# 5. User SSH Setup
+# Needed for GTX 1080
+ENV PIP_EXTRA_INDEX_URL="https://download.pytorch.org/whl/cu121"
+
+# 2. Create a permanent constraint file to lock the PyTorch ecosystem for GTX 1080
+ENV PIP_CONSTRAINT="/home/$NB_USER/.pip_constraints.txt"
+RUN echo "torch<2.6" > /home/$NB_USER/.pip_constraints.txt && \
+    echo "torchvision<0.22" >> /home/$NB_USER/.pip_constraints.txt && \
+    echo "torchaudio<2.6" >> /home/$NB_USER/.pip_constraints.txt
+
+# 5. User SSH Setupß
 RUN mkdir -p /home/$NB_USER/.ssh && \
     chmod 700 /home/$NB_USER/.ssh
+
 COPY --chown=$NB_USER:$NB_GID ssh_keys/authorized_keys /home/$NB_USER/.ssh/authorized_keys
 RUN chmod 600 /home/$NB_USER/.ssh/authorized_keys
 
@@ -61,12 +77,23 @@ RUN chmod 600 /home/$NB_USER/.ssh/authorized_keys
 # PACKAGE INSTALLATION
 # ==========================================
 
+# ==========================================
+# UPGRADE PIP
+# ==========================================
+RUN --mount=type=cache,target=/home/jovyan/.cache/pip,uid=1000,gid=1000 \
+    pip install --upgrade pip setuptools wheel
+
 # LAYER 1: The "Heavy" PyTorch Foundation
 # We isolate this so Docker caches the massive 3GB download permanently.
+# Pinned to 2.6 for GTX 1080
 RUN python3 -m pip install --no-cache-dir \
     "torch" \
     "torchvision" \
-    "torchaudio" \
+    "torchaudio"
+
+# LAYER 1.5: Supplementary PyTorch Tools
+# Installed from standard PyPI
+RUN python3 -m pip install --no-cache-dir \
     "accelerate" \
     "torchao>=0.17.0"
 

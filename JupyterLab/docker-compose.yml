@@ -4,7 +4,7 @@ x-jupyter-base: &jupyter-base
     memlock: -1
     stack: 67108864
   volumes:
-    - jupyter_work:/home/jovyan/work
+    - src:/home/jovyan/work
     - gdrive:/home/jovyan/gdrive
     - jupyter_config:/home/jovyan/.jupyter
     - huggingface_cache:/home/jovyan/.cache/huggingface
@@ -19,7 +19,7 @@ x-jupyter-base: &jupyter-base
   deploy:
     resources:
       limits:
-        memory: 55G
+        memory: 42G
       reservations:
         memory: 10G
         devices:
@@ -29,8 +29,9 @@ x-jupyter-base: &jupyter-base
 
 services:
   # The Master PyTorch Environment
-jupyterlab:
+  jupyterlab:
     <<: *jupyter-base
+    restart: unless-stopped
     build:
       context: .
       dockerfile: jupyterlab/Dockerfile
@@ -39,80 +40,41 @@ jupyterlab:
     hostname: jupyterlab
     ports:
       - "2222:22" # Open 22 to sshd
+      # Note: Port 8888 mapping removed; handled by Nginx proxy
     command: jupyter lab --port=8888 --no-browser --ip=0.0.0.0 --notebook-dir=/home/jovyan --ServerApp.allow_origin='*'
 
   # CPU-Only TensorBoard (Crash-proof and VRAM efficient)
   tensorboard:
     image: custom-jupyter-pytorch:latest
+    restart: unless-stopped
     container_name: tensorboard
     depends_on:
       - jupyterlab
     command: tensorboard --logdir /home/jovyan/work/logs/fit --bind_all --port 6006
+    # Note: Port 6006 mapping removed; handled by Nginx proxy
     volumes:
-      - jupyter_work:/home/jovyan/work
+      - src:/home/jovyan/work
 
-  # Optimized 4-Bit AWQ Inference Engine for Agents
-  vllm:
-    image: vllm/vllm-openai:latest
-    container_name: vllm
-    hostname: vllm
-    ipc: host
-    ulimits:
-      memlock: -1
-      stack: 67108864
-    volumes:
-      - huggingface_cache:/root/.cache/huggingface
-    environment:
-      HF_TOKEN: ${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
-    # Utilizing 4-bit quantization, Marlin kernels, a massive context window, and strict VRAM boundaries
-    command: >
-      --model hugging-quants/Meta-Llama-3.1-8B-Instruct-AWQ-INT4 
-      --quantization awq_marlin 
-      --host 0.0.0.0 
-      --port 8000 
-      --max-model-len 32768 
-      --gpu-memory-utilization 0.40
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-# Persistent Vector Database for Agent Memory (RAG)
-  chromadb:
-    image: chromadb/chroma:latest
-    container_name: chromadb
-    hostname: chromadb
+  # NGINX Reverse Proxy
+  jupyterlab-proxy:
+    image: nginx:latest
+    container_name: jupyterlab-proxy
     restart: unless-stopped
-    volumes:
-      # Maps the internal SQLite and vector index files to your host
-      - chromadb_data:/chroma/chroma
-    environment:
-      - ANONYMIZED_TELEMETRY=FALSE
-  # Consolidated Reverse Proxy
-  nginx:
-    image: nginx:alpine
-    container_name: nginx
-    hostname: nginx
+    ports:
+      - "8888:8888" # Exposes JupyterLab via Nginx
+      - "6006:6006" # Exposes TensorBoard via Nginx
     volumes:
       - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
-    ports:
-      - "8888:8888" # Exposes jupyterlab
-      - "6006:6006" # Exposes TensorBoard
-      - "8000:8000" # Exposes vLLM
-      - "8001:8001" # Exposes ChromaDB via proxy!
     depends_on:
       - jupyterlab
       - tensorboard
-      - vllm
-      - chromadb
+
 volumes:
-  jupyter_work:
+  src:
     driver: local
     driver_opts:
       type: none
-      device: /home/alex/src/jupyter_work
+      device: /home/alex/src
       o: bind
   gdrive:
     driver: local
@@ -124,23 +86,17 @@ volumes:
     driver: local
     driver_opts:
       type: none
-      device: /home/alex/jupyter_server_data/jupyter_config
+      device: /home/alex/docker_server_data/jupyter_config
       o: bind
   huggingface_cache:
     driver: local
     driver_opts:
       type: none
-      device: /home/alex/jupyter_server_data/huggingface_cache
+      device: /home/alex/docker_server_data/huggingface_cache
       o: bind
   jetbrains-backend-cache:
     driver: local
     driver_opts:
       type: none
-      device: /home/alex/jupyter_server_data/jetbrains-backend-cache
-      o: bind
-  chromadb_data:
-    driver: local
-    driver_opts:
-      type: none
-      device: /home/alex/jupyter_server_data/chromadb_data
+      device: /home/alex/docker_server_data/jetbrains-backend-cache
       o: bind

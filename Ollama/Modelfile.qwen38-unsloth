@@ -1,0 +1,10 @@
+FROM hf.co/unsloth/Qwen3.8-27B-GGUF:ud-q4_k_s
+PARAMETER num_ctx 32768
+PARAMETER num_batch 1024
+PARAMETER temperature 0.7
+PARAMETER top_p 0.8
+PARAMETER top_k 20
+PARAMETER min_p 0.0
+PARAMETER presence_penalty 1.5
+PARAMETER repeat_penalty 1.0
+SYSTEM """"""

@@ -1,0 +1,28 @@
+services:
+  samba:
+    build: .
+    container_name: samba
+    hostname: art
+    restart: unless-stopped
+    ports:
+      - "139:139"
+      - "445:445"
+    volumes:
+      # Map your shares
+      - /mnt/ssd_data1/share/alex:/mount/shared/alex
+      - /mnt/ssd_data1/share/Scans:/mount/shared/Scans
+      - /home/alex:/mount/home/alex
+
+      # Persist the Samba password database (NTLM Hashes) on your host
+      - /home/alex/docker_server_data/samba_db:/var/lib/samba
+    command: >
+      -s "shared/alex;/mount/shared/alex;yes;no;no;alex"
+      -s "Scans;/mount/shared/Scans;yes;no;yes;alex"
+      -s "home/alex;/mount/home/alex;yes;no;no;alex"
+      -g "server min protocol = NT1"
+      -g "ntlm auth = yes"
+      -g "log level = 2"
+
+
+# Instructions from Skippy:
+# 1. To Add Users and Set passwords: docker exec -it samba smbpasswd -a <username>

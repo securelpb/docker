@@ -1,0 +1,57 @@
+# This Docker Compose file sets up the llama.cpp server.
+# It follows a pattern similar to the vLLM setup, using a common configuration
+# block and profiles for different models.
+
+# Common settings for all llama.cpp services
+x-llama-common: &llama-common
+  # Use the official llama.cpp server image with CUDA 12 support
+  image: ghcr.io/ggml-org/llama.cpp:server-cuda
+  restart: unless-stopped
+  ipc: host
+  ulimits:
+    memlock: -1
+    stack: 67108864
+  ports:
+    # Map the container's port 8080 to the host's port 8081 to avoid conflicts
+    - "8081:8080"
+  volumes:
+    # Mount a local directory for storing GGUF models into the container
+    - llama_cpp_models:/models
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  # --- Gemma Agentic Model Profile ---
+  # To run this profile: docker-compose -f llama.cpp/docker-compose.yml up --build -d --force-recreate gemma-agentic
+  llama-gemma-agentic:
+    <<: *llama-common
+    container_name: llama-gemma-agentic
+    profiles: ["gemma-agentic"]
+    command: >
+      -m /models/gemma4-v2-Q4_K_M.gguf
+      --host 0.0.0.0
+      --port 8080
+      --n-gpu-layers 99
+      --ctx-size 131000
+      --flash-attn on
+      --jinja
+      --temp 1.0
+      --top-p 0.95
+      --top-k 64
+
+# --- Volume Definitions ---
+# IMPORTANT: You must manually download GGUF model files from Hugging Face
+# into the 'device' path specified below.
+volumes:
+  llama_cpp_models:
+    driver: local
+    driver_opts:
+      type: none
+      # This is the local directory on your server where models should be stored.
+      device: /home/alex/docker_server_data/llama_cpp_models
+      o: bind

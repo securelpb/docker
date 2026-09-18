@@ -28,6 +28,30 @@ services:
     container_name: vllm-qwen
     profiles: ["qwen38_27b"]
     command: >
+          python3 -m vllm.entrypoints.openai.api_server
+            --model dbirks/Qwen3.8-27B-W4A16-AutoRound
+            --host 0.0.0.0
+            --port 8000
+            --trust-remote-code
+            --served-model-name qwen3.8-27b
+            --gpu-memory-utilization 0.96
+            --max-model-len 76800
+            --max-num-seqs 1
+            --kv-cache-dtype fp8
+            --dtype float16
+            --enable-chunked-prefill
+            --max-num-batched-tokens 8192
+            --enable-prefix-caching
+            --reasoning-parser qwen3
+            --enable-auto-tool-choice
+            --tool-call-parser qwen3_xml
+            ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
+
+  vllm-qwen-bench:
+    <<: *vllm-common
+    container_name: vllm-qwen
+    profiles: ["qwen38_27b_bench"]
+    command: >
       python3 -m vllm.entrypoints.openai.api_server 
             --model dbirks/Qwen3.8-27B-W4A16-AutoRound 
             --host 0.0.0.0 
@@ -35,31 +59,17 @@ services:
             --trust-remote-code 
             --served-model-name qwen3.8-27b 
             --gpu-memory-utilization 0.9674
-            --max-model-len 84672 
-            --max-num-seqs 1 
+            --max-model-len 16384 
+            --max-num-seqs 8
             --kv-cache-dtype fp8 
             --dtype float16 
             --enable-chunked-prefill 
-            --max-num-batched-tokens 2048 
+            --max-num-batched-tokens 8192 
             --enable-prefix-caching 
             --reasoning-parser qwen3 
             --enable-auto-tool-choice 
             --tool-call-parser qwen3_xml
             ${VLLM_API_KEY:+--api-key $VLLM_API_KEY}
-
-  open-webui:
-    image: ghcr.io/open-webui/open-webui:main
-    container_name: open-webui
-    profiles: ["qwen38_27b", "qwen3-vl", "qwen-long-context", "coder", "llama"]
-    ports:
-      - "7860:8080" # Maps standard web UI port 7860 to internal 8080
-    volumes:
-      - open-webui:/app/backend/data
-    environment:
-      # Tell Open WebUI where to find your default profile container
-      - OPENAI_API_BASE_URL=http://vllm-qwen:8000/v1
-      - OPENAI_API_KEY=${VLLM_API_KEY:?VLLM_API_KEY is not set. Please define it in a .env file.}
-    restart: unless-stopped
 
   vllm-qwen3-vl:
     <<: *vllm-common

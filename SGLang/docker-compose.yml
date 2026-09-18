@@ -1,0 +1,184 @@
+x-sglang-common: &sglang-common
+  image: lmsysorg/sglang:latest
+  restart: unless-stopped
+  ipc: host
+  ulimits:
+    memlock: -1
+    stack: 67108864
+  ports:
+    - "8000:8000"
+  volumes:
+    - huggingface_cache:/root/.cache/huggingface
+  environment:
+    - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: 1
+            capabilities: [gpu]
+
+services:
+  sglang-qwen-gptq:
+    <<: *sglang-common
+    container_name: sglang-qwen-gptq
+    profiles: [ "qwen38_27b_gptq" ]
+    environment:
+      - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_LOG_LEVEL=DEBUG              # Keeps scheduler debug visibility active!
+      - SGLANG_SHOW_TIME_COST=1             # Tracks prefill vs decode step costs
+    command: >
+      sglang serve
+        --model-path bernhardbrieger/Qwen3.8-27B-GPTQ-Int4
+          --host 0.0.0.0
+          --port 8000
+          --trust-remote-code
+          --served-model-name qwen3.8-27b-gptq
+          --context-length 8192
+          --quantization gptq
+          --dtype float16
+          --mamba-ssm-dtype float16
+          --kv-cache-dtype fp8_e5m2
+          --mem-fraction-static 0.90
+          --max-running-requests 4
+          --cuda-graph-max-bs-decode 4
+          --cuda-graph-backend-prefill disabled
+          --chunked-prefill-size 2048
+          --schedule-policy lpm
+          --reasoning-parser qwen3
+          --tool-call-parser auto
+          --attention-backend flashinfer
+  sglang-qwen-awq:
+    <<: *sglang-common
+    container_name: sglang-qwen-awq
+    profiles: ["qwen38_27b_awq"]
+    environment:
+      - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_LOG_LEVEL=DEBUG              # Keeps scheduler debug visibility active!
+      - SGLANG_SHOW_TIME_COST=1             # Tracks prefill vs decode step costs
+    command: >
+      sglang serve
+        --model-path cyankiwi/Qwen3.8-27B-AWQ-INT4
+        --host 0.0.0.0
+        --port 8000
+        --trust-remote-code
+        --served-model-name qwen3.8-27b-awq
+        --context-length 16384
+        --quantization compressed-tensors
+        --kv-cache-dtype fp8_e5m2
+        --mamba-ssm-dtype bfloat16
+        --max-mamba-cache-size 21
+        --mem-fraction-static 0.84
+        --max-running-requests 4
+        --cuda-graph-max-bs-decode 1
+        --cuda-graph-backend-prefill disabled
+        --chunked-prefill-size 2048
+        --schedule-policy lpm
+        --reasoning-parser qwen3
+        --tool-call-parser auto
+        --attention-backend flashinfer
+
+  sglang-qwen-gptq-mtp:
+    <<: *sglang-common
+    container_name: sglang-qwen-gptq-mtp
+    profiles: ["qwen38_27b_gptq_mtp"]
+    environment:
+      - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_LOG_LEVEL=DEBUG              # Keeps scheduler debug visibility active!
+      - SGLANG_SHOW_TIME_COST=1             # Tracks prefill vs decode step costs
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+    command: >
+      sglang serve
+        --model-path SergiioB/Qwen3.8-27B-GPTQ-Int4-sym-G128-MTP-BF16
+        --host 0.0.0.0
+        --port 8000
+        --trust-remote-code
+        --served-model-name qwen3.8-27b-gptq-mtp
+        --context-length 16384
+        --quantization gptq
+        --dtype float16
+        --kv-cache-dtype fp8_e5m2
+        --mamba-ssm-dtype float16
+        --max-mamba-cache-size 16
+        --mem-fraction-static 0.86
+        --max-running-requests 3
+        --cuda-graph-max-bs 3
+        --cuda-graph-max-bs-prefill 2048
+        --chunked-prefill-size 8192
+        --schedule-policy lpm
+        --speculative-algorithm EAGLE
+        --speculative-num-steps 3
+        --speculative-eagle-topk 1
+        --reasoning-parser qwen3
+        --tool-call-parser auto
+        --attention-backend flashinfer
+      
+  sglang-qwen-autoround:
+    <<: *sglang-common
+    container_name: sglang-qwen-autoround
+    profiles: ["qwen38_27b_autoround"]
+    environment:
+      - SGLANG_LOG_LEVEL=DEBUG              # Forces verbose scheduler logging
+      - SGLANG_SHOW_TIME_COST=1
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+    command: >
+      sglang serve
+        --model-path dbirks/Qwen3.8-27B-W4A16-AutoRound
+        --host 0.0.0.0
+        --port 8000
+        --trust-remote-code
+        --served-model-name qwen3.8-27b
+        --context-length 32768
+        --quantization compressed-tensors
+        --dtype bfloat16
+        --kv-cache-dtype fp8_e5m2
+        --mamba-ssm-dtype bfloat16
+        --max-mamba-cache-size 6
+        --mem-fraction-static 0.84
+        --max-running-requests 1
+        --cuda-graph-max-bs-prefill 2048
+        --chunked-prefill-size 8192
+        --schedule-policy lpm
+        --reasoning-parser qwen3
+        --tool-call-parser auto
+        --attention-backend flashinfer
+
+  sglang-qwen-autoround-bench:
+    <<: *sglang-common
+    container_name: sglang-qwen-autoround
+    profiles: ["qwen38_27b_autoround-bench"]
+    environment:
+      - SGLANG_LOG_LEVEL=DEBUG              # Forces verbose scheduler logging
+      - SGLANG_SHOW_TIME_COST=1
+      - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+      - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+    command: >
+      sglang serve
+        --model-path dbirks/Qwen3.8-27B-W4A16-AutoRound
+        --host 0.0.0.0
+        --port 8000
+        --trust-remote-code
+        --served-model-name qwen3.8-27b
+        --context-length 32768
+        --quantization compressed-tensors
+        --dtype bfloat16
+        --kv-cache-dtype fp8_e5m2
+        --mamba-ssm-dtype bfloat16
+        --max-mamba-cache-size 11
+        --mem-fraction-static 0.84
+        --max-running-requests 2
+        --cuda-graph-max-bs-prefill 2048
+        --chunked-prefill-size 4096
+        --schedule-policy lpm
+        --reasoning-parser qwen3
+        --tool-call-parser auto
+        --attention-backend flashinfer
+volumes:
+  huggingface_cache:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/docker_server_data/huggingface_cache
+      o: bind

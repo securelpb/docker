@@ -12,7 +12,7 @@
 * Run setup: `docker exec -it openclaw-gateway openclaw setup`
 * Run onboarding: `docker exec -it openclaw-gateway openclaw onboard`
 * Run doctor: `docker exec -it openclaw-gateway openclaw doctor` (Add --fix to fix things)
-
+* When container won't start: `docker compose run --rm openclaw-gateway openclaw doctor --fix`
 ## Configuration to enable ssh into a remote host (perform on target hosts)
 ```
 # 1. Create group "shared" to share files with openclaw_agent user

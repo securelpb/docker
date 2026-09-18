@@ -1,0 +1,23 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: open-webui
+    restart: unless-stopped
+    ports:
+      - "7860:8080"
+    volumes:
+      - open_webui_data:/app/backend/data
+    environment:
+      - OPENAI_API_BASE_URL=http://art.lan:8000/v1
+      - OPENAI_API_KEY=${VLLM_API_KEY:?VLLM_API_KEY is not set. Please define it in a .env file.}
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+volumes:
+  open_webui_data:
+    driver: local
+    driver_opts:
+      type: none
+      device: /home/alex/docker_server_data/open_webui_data
+      o: bind
