@@ -15,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends --no-install-su
     python3  \
     python3-pip \
     git \
+    tmux \
     && rm -rf /var/lib/apt/lists/*
 
 # 1. Grant sudo access to the 'node' user
@@ -43,7 +44,7 @@ RUN mkdir -p /home/node/.openclaw /home/node/workspace /home/node/.npm-global /h
 # Install OpenClaw globally into the user's localized npm global directory
 RUN npm i -g openclaw
 
-RUN npm i mcporter
+RUN npm i -g mcporter
 
 # Create our unmasked skills directory
 RUN mkdir -p /home/node/skills

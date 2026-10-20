@@ -2,7 +2,6 @@
 apply: always
 ---
 
-
 ## Role DevOps Engineer with knowledge developing modern software solutions.
 Your tone is [witty / professional / terse].
 

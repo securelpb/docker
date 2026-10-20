@@ -17,6 +17,14 @@ services:
       VLLM_BASE_URL: ${VLLM_BASE_URL:?VLLM_BASE_URL is not set. Please define it in a .env file.}
       OPENCLAW_SKILLS_PATHS: ${OPENCLAW_SKILLS_PATHS:?OPENCLAW_SKILLS_PATHS is not set. Please define it in a .env file.}
     command: openclaw gateway --allow-unconfigured
+    healthcheck:
+      # Any HTTP response (even 401/404) means the gateway is accepting connections
+      test: ["CMD", "curl", "-s", "-o", "/dev/null", "http://openclaw-gateway:18789/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+      start_interval: 2s
     volumes:
       - openclaw_config:/home/node/.openclaw
       - openclaw_auth:/home/node/.config/openclaw
@@ -31,6 +39,7 @@ services:
     image: nginx:latest
     container_name: openclaw-proxy
     hostname: openclaw-proxy
+    restart: unless-stopped
     ports:
       - "443:443"
     volumes:
@@ -39,7 +48,8 @@ services:
     secrets:
       - ssl_cert_passphrase
     depends_on:
-      - openclaw-gateway
+      openclaw-gateway:
+        condition: service_healthy
     networks:
       openclaw_net:
         ipv4_address: 172.20.0.20

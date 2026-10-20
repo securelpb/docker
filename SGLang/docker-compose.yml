@@ -11,6 +11,7 @@ x-sglang-common: &sglang-common
     - huggingface_cache:/root/.cache/huggingface
   environment:
     - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+    - SGLANG_API_KEY=${SGLANG_API_KEY:?SGLANG_API_KEY is not set. Please define it in a .env file.}
   deploy:
     resources:
       reservations:
@@ -20,12 +21,37 @@ x-sglang-common: &sglang-common
             capabilities: [gpu]
 
 services:
+  sglang-qwen25-awq:
+    <<: *sglang-common
+    container_name: sglang-qwen25-awq
+    profiles: [ "sglang-qwen25-awq" ]
+    environment:
+      - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_API_KEY=${SGLANG_API_KEY:?SGLANG_API_KEY is not set. Please define it in a .env file.}
+      - SGLANG_LOG_LEVEL=DEBUG              # Keeps scheduler debug visibility active!
+      - SGLANG_SHOW_TIME_COST=1             # Tracks prefill vs decode step costs
+      - SGLANG_ALLOW_OVERWRITE_LONGER_CONTEXT_LEN=1
+    command: >
+      sglang serve 
+        --model-path Qwen/Qwen2.5-Coder-7B-Instruct-AWQ 
+        --host 0.0.0.0 
+        --port 8000 
+        --api-key ${SGLANG_API_KEY} 
+        --served-model-name qwen2.5-coder-7b-awq 
+        --context-length 131072 
+        --quantization awq_marlin 
+        --mem-fraction-static 0.88 
+        --max-running-requests 1 
+        --chunked-prefill-size 4096 
+        --tool-call-parser qwen
+        --attention-backend flashinfer
   sglang-qwen-gptq:
     <<: *sglang-common
     container_name: sglang-qwen-gptq
     profiles: [ "qwen38_27b_gptq" ]
     environment:
       - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_API_KEY=${SGLANG_API_KEY:?SGLANG_API_KEY is not set. Please define it in a .env file.}
       - SGLANG_LOG_LEVEL=DEBUG              # Keeps scheduler debug visibility active!
       - SGLANG_SHOW_TIME_COST=1             # Tracks prefill vs decode step costs
     command: >
@@ -33,6 +59,7 @@ services:
         --model-path bernhardbrieger/Qwen3.8-27B-GPTQ-Int4
           --host 0.0.0.0
           --port 8000
+          --api-key ${SGLANG_API_KEY}
           --trust-remote-code
           --served-model-name qwen3.8-27b-gptq
           --context-length 8192
@@ -55,6 +82,7 @@ services:
     profiles: ["qwen38_27b_awq"]
     environment:
       - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_API_KEY=${SGLANG_API_KEY:?SGLANG_API_KEY is not set. Please define it in a .env file.}
       - SGLANG_LOG_LEVEL=DEBUG              # Keeps scheduler debug visibility active!
       - SGLANG_SHOW_TIME_COST=1             # Tracks prefill vs decode step costs
     command: >
@@ -62,6 +90,7 @@ services:
         --model-path cyankiwi/Qwen3.8-27B-AWQ-INT4
         --host 0.0.0.0
         --port 8000
+        --api-key ${SGLANG_API_KEY}
         --trust-remote-code
         --served-model-name qwen3.8-27b-awq
         --context-length 16384
@@ -85,6 +114,7 @@ services:
     profiles: ["qwen38_27b_gptq_mtp"]
     environment:
       - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_API_KEY=${SGLANG_API_KEY:?SGLANG_API_KEY is not set. Please define it in a .env file.}
       - SGLANG_LOG_LEVEL=DEBUG              # Keeps scheduler debug visibility active!
       - SGLANG_SHOW_TIME_COST=1             # Tracks prefill vs decode step costs
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
@@ -93,6 +123,7 @@ services:
         --model-path SergiioB/Qwen3.8-27B-GPTQ-Int4-sym-G128-MTP-BF16
         --host 0.0.0.0
         --port 8000
+        --api-key ${SGLANG_API_KEY}
         --trust-remote-code
         --served-model-name qwen3.8-27b-gptq-mtp
         --context-length 16384
@@ -123,11 +154,13 @@ services:
       - SGLANG_SHOW_TIME_COST=1
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_API_KEY=${SGLANG_API_KEY:?SGLANG_API_KEY is not set. Please define it in a .env file.}
     command: >
       sglang serve
         --model-path dbirks/Qwen3.8-27B-W4A16-AutoRound
         --host 0.0.0.0
         --port 8000
+        --api-key ${SGLANG_API_KEY}
         --trust-remote-code
         --served-model-name qwen3.8-27b
         --context-length 32768
@@ -154,11 +187,13 @@ services:
       - SGLANG_SHOW_TIME_COST=1
       - PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
       - HF_TOKEN=${HF_TOKEN:?HF_TOKEN is not set. Please define it in a .env file.}
+      - SGLANG_API_KEY=${SGLANG_API_KEY:?SGLANG_API_KEY is not set. Please define it in a .env file.}
     command: >
       sglang serve
         --model-path dbirks/Qwen3.8-27B-W4A16-AutoRound
         --host 0.0.0.0
         --port 8000
+        --api-key ${SGLANG_API_KEY}
         --trust-remote-code
         --served-model-name qwen3.8-27b
         --context-length 32768
